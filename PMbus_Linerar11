@@ -1,41 +1,64 @@
+/*******************************************************************************
+* Function name: App_ExtComLineDataProcess(u16 u16Qmode,i16 i16Data,f32 f32Data)
+* @brief PMBus Linear11格式转换函数  X=Y*2^N
+* @param[in] u16Qmode:定点型DSP系统     i16Data:定点型DSP系统使用的传入数据.   f32Data:F浮点型DSP系统使用的传入数据，float型数据
+* @param[out] Word
+* @retval N/A
+* @author M3344
+* @date 20211215
+*******************************************************************************/
+///<整形16位数据定义
+typedef union
+{
+    struct
+    {
+        u8 ByteL:8;        ///<低8位
+        u8 ByteH:8;        ///<高8位
+    };
+    struct
+    {
+        u16 Xdata:11;        ///<低11位
+        u16 Ndata:5;         ///<高5位
+    };
+    u16  u16WordData;
+}WORD_DATA_T;
 u16 App_ExtComLineDataProcess(u16 u16Qmode,i16 i16Data,f32 f32Data)
 {
-    i16 i16Ndata =0;
-    i16 i16Xdata =0;
-    i16 i16Temp =0;
-    i16 i16Tmp = 0;///<装锟截伙拷原锟斤拷锟斤拷锟斤拷
+    i16 i16Ndata =0;///用来保存N的值
+    i16 i16Xdata =0;///用来保存Y值
+    i16 i16Temp =0;///进行传入数据变换*2^N或/2^N
+    i16 i16Tmp = 0;///在定点DSP，对传入数据进行/2^N保存
     f32 f32Temp =0.0f;
-    f32 f32TempStore =0.0f;
+    f32 f32TempStore =0.0f;    //用来保存转换前传入的实际数据
     u8 u8Dex =0;
     i16 i16Dex = 0;
-    f32 f32Dex = 0.0f;///<锟斤拷锟斤拷锟斤拷位锟斤拷锟斤拷
-    u16 u16IqMode = 0;///<锟斤拷锟斤拷IQ锟斤拷位锟斤拷锟斤拷
+    u16 u16IqMode = 0;///定点
     WORD_DATA_T u16ReTurnData;
 
-    if(i16Data == 0)           ///<锟斤拷锟斤拷时锟斤拷锟斤拷锟斤拷
+    if(i16Data == 0)           ///判断是否为定点或浮点数据
     {
-        f32TempStore = f32Data;///<锟芥储锟斤拷原始锟斤拷锟
-        f32Temp = f32Data;     ///锟饺猴拷锟斤拷小锟斤拷锟斤拷木锟斤拷取锟�
-        if(f32Temp < 0.0f)         ///<取锟斤拷锟斤拷值锟斤拷锟斤拷锟斤拷锟斤拷锟�
+        f32TempStore = f32Data;
+        f32Temp = f32Data;    
+        if(f32Temp < 0.0f)         ///取传入数据绝对值
         {
             f32Temp = (-f32Temp);
         }
     }
-    else                                        ///<锟斤拷锟斤拷时锟斤拷锟斤拷锟斤拷也转锟斤拷为锟斤拷锟斤拷锟斤拷锟斤拷锟叫诧拷锟斤拷锟斤拷
+    else                                        ///使用定点DSP的数据转换
     {
         u16IqMode = (1U << u16Qmode);
         i16Tmp = (i16Data / (i16)u16IqMode);
-        f32Temp = (f32)i16Tmp;///<锟斤拷锟捷伙拷原,u16Qmode锟斤拷锟斤拷为锟斤拷值
-        f32TempStore = f32Temp;          ///<锟芥储锟斤拷原始锟斤拷锟捷诧拷转锟
-        if(f32Temp < 0.0f)                          ///<取锟斤拷锟斤拷值锟斤拷锟斤拷锟斤拷锟斤拷锟�
+        f32Temp = (f32)i16Tmp;
+        f32TempStore = f32Temp;         
+        if(f32Temp < 0.0f)                          
         {
             f32Temp = (-f32Temp);
         }
     }
     i16Temp = (i16)f32Temp;
-    if(i16Temp < 512)
+    if(i16Temp < 512)        ///512为Y数据的第9位，位数越大，精度越高，在保证Y的精度时也要保证N的精度
     {
-        for(u8Dex = 0;u8Dex < 9U;u8Dex++)             ///<锟斤拷嗟�-8
+        for(u8Dex = 0;u8Dex < 9U;u8Dex++)             ///循环用来放大*2^N
         {
 
             if(u8Dex == 0U)
@@ -51,7 +74,7 @@ u16 App_ExtComLineDataProcess(u16 u16Qmode,i16 i16Data,f32 f32Data)
 
             if(i16Temp < 512)
             {
-                i16Ndata = 0-(i16)u8Dex;
+                i16Ndata = 0-(i16)u8Dex;///获取N
                 f32Temp = f32TempStore * (f32)(i16Dex);
                 i16Xdata =(i16)(f32Temp);
             }
