@@ -1,0 +1,99 @@
+u16 App_ExtComLineDataProcess(u16 u16Qmode,i16 i16Data,f32 f32Data)
+{
+    i16 i16Ndata =0;
+    i16 i16Xdata =0;
+    i16 i16Temp =0;
+    i16 i16Tmp = 0;///<装锟截伙拷原锟斤拷锟斤拷锟斤拷
+    f32 f32Temp =0.0f;
+    f32 f32TempStore =0.0f;
+    u8 u8Dex =0;
+    i16 i16Dex = 0;
+    f32 f32Dex = 0.0f;///<锟斤拷锟斤拷锟斤拷位锟斤拷锟斤拷
+    u16 u16IqMode = 0;///<锟斤拷锟斤拷IQ锟斤拷位锟斤拷锟斤拷
+    WORD_DATA_T u16ReTurnData;
+
+    if(i16Data == 0)           ///<锟斤拷锟斤拷时锟斤拷锟斤拷锟斤拷
+    {
+        f32TempStore = f32Data;///<锟芥储锟斤拷原始锟斤拷锟
+        f32Temp = f32Data;     ///锟饺猴拷锟斤拷小锟斤拷锟斤拷木锟斤拷取锟�
+        if(f32Temp < 0.0f)         ///<取锟斤拷锟斤拷值锟斤拷锟斤拷锟斤拷锟斤拷锟�
+        {
+            f32Temp = (-f32Temp);
+        }
+    }
+    else                                        ///<锟斤拷锟斤拷时锟斤拷锟斤拷锟斤拷也转锟斤拷为锟斤拷锟斤拷锟斤拷锟斤拷锟叫诧拷锟斤拷锟斤拷
+    {
+        u16IqMode = (1U << u16Qmode);
+        i16Tmp = (i16Data / (i16)u16IqMode);
+        f32Temp = (f32)i16Tmp;///<锟斤拷锟捷伙拷原,u16Qmode锟斤拷锟斤拷为锟斤拷值
+        f32TempStore = f32Temp;          ///<锟芥储锟斤拷原始锟斤拷锟捷诧拷转锟
+        if(f32Temp < 0.0f)                          ///<取锟斤拷锟斤拷值锟斤拷锟斤拷锟斤拷锟斤拷锟�
+        {
+            f32Temp = (-f32Temp);
+        }
+    }
+    i16Temp = (i16)f32Temp;
+    if(i16Temp < 512)
+    {
+        for(u8Dex = 0;u8Dex < 9U;u8Dex++)             ///<锟斤拷嗟�-8
+        {
+
+            if(u8Dex == 0U)
+            {
+                i16Temp = i16Temp;
+                i16Dex = 1;
+            }
+            else
+            {
+                i16Temp = i16Temp * 2;
+                i16Dex = i16Dex * 2;
+            }
+
+            if(i16Temp < 512)
+            {
+                i16Ndata = 0-(i16)u8Dex;
+                f32Temp = f32TempStore * (f32)(i16Dex);
+                i16Xdata =(i16)(f32Temp);
+            }
+            else
+            {
+                break;                                      ///<锟斤拷锟斤拷循锟斤拷锟斤拷
+            }
+        }
+
+    }
+    else                //锟斤拷锟节碉拷锟斤拷 512
+    {
+        for(u8Dex = 0;u8Dex < 6U;u8Dex++)                        ///<锟斤拷嗟�5     32*1024= 35840
+        {
+            if(u8Dex == 0U)
+            {
+                i16Temp = i16Temp;
+                i16Dex = 1;
+            }
+            else
+            {
+                i16Temp = i16Temp / 2;
+                i16Dex = i16Dex * 2;
+            }
+            if(i16Temp >= 512)
+            {
+                i16Ndata = (i16)u8Dex;
+                f32Temp = f32TempStore/(f32)i16Dex;
+                i16Xdata =(i16)(f32Temp);
+            }
+            else
+            {
+                break;                                     ///<锟斤拷锟斤拷循锟斤拷锟斤拷
+            }
+        }
+
+    }
+    u16ReTurnData.Ndata = i16Ndata;
+    u16ReTurnData.Xdata = i16Xdata;
+    return(u16ReTurnData.u16WordData);
+}
+上面是PMBus转换为linear11格式
+    u32_r97_read_pin = (u32)App_ExtComLineDataProcess(0,0,(g_tIntComVar.tPfc2DcdcMntData.f32Iin * g_tIntComVar.tPfc2DcdcCtrlData.f32Vin)); // linear11 g_tDataProcessVar.tMeasure.f32Pin
+    slave_cmd.page0.r97_read_pin.u32Val = ((u32_r97_read_pin << 8) & 0x00FF0000) | (u32_r97_read_pin & 0x000000FF);
+上面代码是在主函数中调用帮我解释一下
