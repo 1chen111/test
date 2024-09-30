@@ -56,23 +56,23 @@ u16 App_ExtComLineDataProcess(u16 u16Qmode,i16 i16Data,f32 f32Data)
         }
     }
     i16Temp = (i16)f32Temp;
-    if(i16Temp < 512)        ///512为Y数据的第9位，位数越大，精度越高，在保证Y的精度时也要保证N的精度
+    if(i16Temp < 512)        ///这里因为要放大2倍，如果＞512乘以2就会大于1024数据会溢出，位数越大，精度越高，在保证Y的精度时也要保证N的精度
     {
         for(u8Dex = 0;u8Dex < 9U;u8Dex++)             ///循环用来放大*2^N
         {
 
-            if(u8Dex == 0U)
+            if(u8Dex == 0U)///第0位数据2^0=1
             {
-                i16Temp = i16Temp;
+                i16Temp = i16Temp;///X=Y*2^0=Y
                 i16Dex = 1;
             }
             else
             {
-                i16Temp = i16Temp * 2;
-                i16Dex = i16Dex * 2;
+                i16Temp = i16Temp * 2;///X=Y*2^(N+1）
+                i16Dex = i16Dex * 2;///用来记录乘以多少个2
             }
 
-            if(i16Temp < 512)
+            if(i16Temp < 512)///判断放大的数据有无超过512
             {
                 i16Ndata = 0-(i16)u8Dex;///获取N
                 f32Temp = f32TempStore * (f32)(i16Dex);
@@ -80,12 +80,12 @@ u16 App_ExtComLineDataProcess(u16 u16Qmode,i16 i16Data,f32 f32Data)
             }
             else
             {
-                break;                                      ///<锟斤拷锟斤拷循锟斤拷锟斤拷
+                break;                                      
             }
         }
 
     }
-    else                //锟斤拷锟节碉拷锟斤拷 512
+    else                //如果小于1024或者>(-1024)数据就不放大不缩小，如果1024＞或者＜(-1024)数据就会缩小处理
     {
         for(u8Dex = 0;u8Dex < 6U;u8Dex++)                        ///<锟斤拷嗟�5     32*1024= 35840
         {
