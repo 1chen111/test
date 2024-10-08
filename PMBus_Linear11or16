@@ -1,0 +1,140 @@
+typedef union
+{
+    struct
+    {
+        u8 ByteL:8;        ///<低8位
+        u8 ByteH:8;        ///<高8位
+    };
+    struct
+    {
+        u16 Xdata:11;        ///<低11位
+        u16 Ndata:5;         ///<高5位
+    };
+    u16  u16WordData;
+}WORD_DATA_T;
+
+//<整型32位数据定义
+typedef union	
+{
+	struct
+	{
+			u16 WordL:16;		///低16位
+			u16 WordH:16;		///<高16位
+	};
+	struct
+	{
+		u16 Xdata:16;		///<低16位
+		u16 Ndata:5;		///<高5位
+		u16 RsvdBit11:11;	///<高保留
+	};
+	u32 u32BlockData;
+}BLOCK_DATA_T;
+
+#define LINEAR11_THRESHOLD  512
+#define LINEAR16_THRESHOLD 16384
+/*******************************************************************************
+* Function name: App_ExtComLinear16DataProcess(u16 u16Qmode,i16 i16Data,f32 f32Data,LinearMode Mode)
+* @brief PMBus Linear16閿熸枻鎷稬inear11閿熸枻鎷峰紡杞敓鏂ゆ嫹閿熸枻鎷烽敓鏂ゆ嫹  X=Y*2^N
+* @param[in] u16Qmode:閿熸枻鎷烽敓鏂ゆ嫹閿熸枻鎷稤SP绯荤粺     i16Data:閿熸枻鎷烽敓鏂ゆ嫹閿熸枻鎷稤SP绯荤粺浣块敓鐭殑杈炬嫹閿熸枻鎷烽敓鏂ゆ嫹閿熸枻鎷?   f32Data:F閿熸枻鎷烽敓鏂ゆ嫹閿熸枻鎷稤SP绯荤粺浣块敓鐭殑杈炬嫹閿熸枻鎷烽敓鏂ゆ嫹閿熸嵎锝忔嫹float閿熸枻鎷烽敓鏂ゆ嫹閿熸枻鎷? Mode:涓洪€夐敓鏂ゆ嫹Linear妯″紡.
+* @param[out] Block閿熸枻鎷稺orld
+* @retval N/A
+* @author M3344
+* @date 20240930
+*******************************************************************************/
+	/* 用法示例
+	u16 linear11Result = App_ExtComLinearDataProcess(0, 0, 3.14f, LINEAR11);
+	u32 linear16Result = App_ExtComLinearDataProcess(0, 0, 3.14f, LINEAR16);
+	*/
+u32 App_ExtComLineDataProcess(u16 u16Qmode, i16 i16Data, f32 f32Data,LINEAR_MODE_T Mode)
+{
+	i16 i16Ndata =0;///��������N��ֵ
+    i16 i16Xdata =0;///��������Yֵ
+    i16 i16Temp =0;///���д������ݱ任*2^N��/2^N
+    i16 i16Tmp = 0;///�ڶ���DSP���Դ������ݽ���/2^N����
+    f32 f32Temp =0.0f;
+    f32 f32TempStore =0.0f;    //��������ת��ǰ�����ʵ������?
+    u16 u16IqMode = 0;///����
+    u16 threshold = (Mode == LINEAR11) ? LINEAR11_THRESHOLD : LINEAR16_THRESHOLD;
+
+    if(i16Data == 0)
+    {
+        f32TempStore = f32Data;
+        f32Temp = f32Data;    
+        if(f32Temp < 0.0f)         ///ȡ�������ݾ���ֵ
+        {
+            f32Temp = (-f32Temp);
+        }
+    }
+    else                                        ///ʹ�ö���DSP������ת��
+    {
+        u16IqMode = (1U << u16Qmode);
+        i16Tmp = (i16Data / (i16)u16IqMode);
+        f32Temp = (f32)i16Tmp;
+        f32TempStore = f32Temp;         
+        if(f32Temp < 0.0f)                          
+        {
+            f32Temp = (-f32Temp);
+        }
+    }
+	
+    i16Temp = (i16)f32Temp;
+	  u8 u8Dex =0;
+    i16 i16Dex = 1;
+	if(i16Temp < threshold)
+    {
+        for(u8Dex = 0; u8Dex <= 16U; u8Dex++)
+        {
+            if(u8Dex > 0)
+            {
+                i16Temp *= 2;
+                i16Dex *= 2;
+            }
+            if(i16Temp < threshold)
+            {
+                i16Ndata = -(i16)u8Dex;
+                f32Temp = f32TempStore * (f32)(i16Dex);
+                i16Xdata = (i16)(f32Temp);
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+    else
+    {
+        for(u8Dex = 0; u8Dex <= 15U; u8Dex++)
+        {
+            if(u8Dex > 0)
+            {
+                i16Temp /= 2;
+                i16Dex *= 2;
+            }
+            if(i16Temp >= threshold)
+            {
+                i16Ndata = (i16)u8Dex;
+                f32Temp = f32TempStore / (f32)i16Dex;
+                i16Xdata = (i16)(f32Temp);
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+    if(Mode == LINEAR11)
+    {
+        WORD_DATA_T data;
+        data.Ndata = i16Ndata;
+        data.Xdata = i16Xdata;
+        return data.u16WordData;
+    }
+    else
+    {
+        BLOCK_DATA_T data;
+        data.Ndata = i16Ndata;
+        data.Xdata = i16Xdata;
+        data.RsvdBit11 = 0;
+        return data.u32BlockData;
+    }
+}
