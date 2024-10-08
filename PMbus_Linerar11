@@ -119,4 +119,3 @@ u16 App_ExtComLineDataProcess(u16 u16Qmode,i16 i16Data,f32 f32Data)
 上面是PMBus转换为linear11格式
     u32_r97_read_pin = (u32)App_ExtComLineDataProcess(0,0,(g_tIntComVar.tPfc2DcdcMntData.f32Iin * g_tIntComVar.tPfc2DcdcCtrlData.f32Vin)); // linear11 g_tDataProcessVar.tMeasure.f32Pin
     slave_cmd.page0.r97_read_pin.u32Val = ((u32_r97_read_pin << 8) & 0x00FF0000) | (u32_r97_read_pin & 0x000000FF);
-上面代码是在主函数中调用帮我解释一下
