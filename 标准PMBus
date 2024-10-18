@@ -1,0 +1,145 @@
+*注意：该工程的Linear16需要根据实际的PMBus协议来描述，实际的Linear16的N值需要根据VOUT_MODE来设置模式，提前设置N的大小*/
+typedef union
+{
+    struct
+    {
+        u8 ByteL:8;        ///<低8位
+        u8 ByteH:8;        ///<高8位
+    };
+    struct
+    {
+        u16 Xdata:11;        ///<低11位
+        u16 Ndata:5;         ///<高5位
+    };
+    u16  u16WordData;
+}WORD_DATA_T;
+//<整型32位数据定义
+typedef union	
+{
+	struct
+	{
+			u16 WordL:16;		///低16位
+			u16 WordH:16;		///<高16位
+	};
+	struct
+	{
+		u16 Xdata:16;		///<低16位
+		u16 Ndata:5;		///<高5位
+		u16 RsvdBit11:11;	///<高保留
+	};
+	u32 u32BlockData;
+}BLOCK_DATA_T;
+
+#define LINEAR11_THRESHOLD  512
+#define LINEAR16_THRESHOLD 16384
+
+
+/*******************************************************************************
+* Function name: App_ExtComLinear16DataProcess(u16 u16Qmode,i16 i16Data,f32 f32Data,LinearMode Mode)
+* @brief PMBus Linear16格式和Linear11格式转换函数  X=Y*2^N
+* @param[in] u16Qmode:定点型DSP系统和float点型系统选择     i16Data:定点型DSP系统使用的传入数据   f32Data:F浮点型DSP系统使用的传入数据，float型数据 Mode:模式选择转换11还是16
+* @param[out] Block或者Word
+* @retval N/A
+* @author M3344
+* @date 202401008
+*******************************************************************************/
+	/* 用法示例
+	u16 linear11Result = App_ExtComLinearDataProcess(0, 0, 3.14f, LINEAR11);
+	u32 linear16Result = App_ExtComLinearDataProcess(0, 0, 3.14f, LINEAR16);
+	*/
+u32 App_ExtComLineDataProcess(u16 u16Qmode, i16 i16Data, f32 f32Data,LINEAR_MODE_T Mode)
+{
+    i16 i16Ndata =0;///用来保存N的值
+    i16 i16Xdata =0;///用来保存Y值
+    i16 i16Temp =0;///进行传入数据变换*2^N或/2^N
+    i16 i16Tmp = 0;///在定点DSP，对传入数据进行/2^N保存
+    f32 f32Temp =0.0f;
+    f32 f32TempStore =0.0f;    //用来保存转换前传入的实际数据
+    u16 u16IqMode = 0;///定点
+    u16 u16threshold = (Mode == LINEAR11) ? LINEAR11_THRESHOLD : LINEAR16_THRESHOLD;
+    u16 u16Exp2N= (Mode == LINEAR11) ? 16 : (~slave_cmd.page0.r20_vout_mode.byte & 0x000F)+1;	//由VOUT_MODE寄存器获取N的值，由补码变为原码（负数变为正数转换）
+    u16 u16Shift2N= (Mode == LINEAR11) ? 15 : (~slave_cmd.page0.r20_vout_mode.byte & 0x000F)+1;
+
+    if(i16Data == 0)          
+    {
+        f32TempStore = f32Data;
+        f32Temp = f32Data;
+        if(f32Temp < 0.0f)         ///判断是否为定点或浮点数据
+        {
+            f32Temp = (-f32Temp);
+        }
+   }
+    else                                        ///使用定点DSP的数据转换
+    {
+        u16IqMode = (1U << u16Qmode);
+        i16Tmp = (i16Data / (i16)u16IqMode);
+        f32Temp = (f32)i16Tmp;
+        f32TempStore = f32Temp;
+        if(f32Temp < 0.0f)
+        {
+            f32Temp = (-f32Temp);
+        }
+    }
+
+    i16Temp = (i16)f32Temp;
+    u8 u8Dex =0;
+    i16 i16Dex = 1;
+    if(i16Temp < u16threshold)///这里因为要放大2倍，如果＞512乘以2就会大于1024数据会溢出(如果是Linear11就是512，如果是Linear就是16384)，位数越大，精度越高，在保证Y的精度时也要保证N的精度
+    {
+        for(u8Dex = 0; u8Dex <= u16Exp2N; u8Dex++)///循环用来放大*2^N，这里认为Linear11和Linear16的传入数据一般不会放大为2^16
+        {
+            if(u8Dex > 0)///第0位数据2^0=1
+            {
+                i16Temp *= 2;///X=Y*2^(N+1）
+                i16Dex *= 2;///用来记录乘以多少个2
+            }
+            if(i16Temp < u16threshold)
+            {
+                i16Ndata = -(i16)u8Dex;///获取N
+                f32Temp = f32TempStore * (f32)(i16Dex);
+                i16Xdata = (i16)(f32Temp);
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+   else//如果linear11小于1024或者>(-1024)数据就不放大不缩小，如果1024＞或者＜(-1024)数据就会缩小处理
+    {
+        for(u8Dex = 0; u8Dex <= u16Shift2N; u8Dex++)
+        {
+            if(u8Dex > 0)
+            {
+                i16Temp /= 2;
+                i16Dex *= 2;
+            }
+            if(i16Temp >= u16threshold)
+            {
+                i16Ndata = (i16)u8Dex;
+                f32Temp = f32TempStore / (f32)i16Dex;
+                i16Xdata = (i16)(f32Temp);
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
+    if(Mode == LINEAR11)
+    {
+        WORD_DATA_T data;
+        data.Ndata = i16Ndata;
+        data.Xdata = i16Xdata;
+        return data.u16WordData;
+    }
+   else
+    {
+        BLOCK_DATA_T data;
+        data.Ndata = i16Ndata;
+        data.Xdata = i16Xdata;
+        data.RsvdBit11 = 0;
+        return data.u32BlockData;
+    }
+}
